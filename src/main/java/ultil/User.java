@@ -7,13 +7,11 @@ public class User {
     int id;
     String email;
     int id_role;
-    String statition_default;
 
     public int getId() {
         return id;
     }
 
-    String statition_extend;
 
     public void setUsername(String username) {
         this.username = username;

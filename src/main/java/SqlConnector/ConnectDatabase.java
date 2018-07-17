@@ -76,20 +76,25 @@ public class ConnectDatabase {
             }
         }
         catch (Exception e){
-
+            e.printStackTrace();
         }
         return arrayT;
     }
 
 
     public <T> List<T> selectAndJoin(String priTable, io.vertx.core.json.JsonObject json,  List<String> joinTable,
-                                     List<String> cols, List<String> joinParam, Connection conn, Class<T> entityClass){
+                                     List<String> cols, List<String> joinParam, Connection conn, Class<T> entityClass,
+                                     List<String> op, int tableWhere){
         List<T> arrayT = new ArrayList<>();
-        StringBuilder builder = createJoinQuery(priTable, json, joinTable, cols, joinParam);
-
-        System.out.println(builder.toString());
-        System.out.println(builder);
-        try {
+        StringBuilder builder;
+        if(op==null) {
+            builder = createJoinQuery(priTable, json, joinTable, cols, joinParam);
+        }
+        else {
+            builder = createJoinQuery(priTable, json, joinTable, cols, joinParam, op, tableWhere);
+        }
+        try
+        {
 
             PreparedStatement stmt = conn.prepareStatement(builder.toString());
             if(stmt == null){
@@ -108,6 +113,46 @@ public class ConnectDatabase {
 
 
         return arrayT;
+    }
+
+    public StringBuilder createJoinQuery(String priTable, io.vertx.core.json.JsonObject json,
+                                         List<String> joinTable, List<String> cols,
+                                         List<String> joinParam, List<String> op, int tableWhere){
+
+        StringBuilder builder = new StringBuilder("Select ");
+        if(cols == null){
+            builder.append("* from " +  priTable);
+        }
+        else {
+            for(String str : cols){
+                builder.append(str + ",");
+            }
+            builder.deleteCharAt(builder.length() - 1);
+            builder.append(" from " + priTable);
+        }
+
+        int i = 0;
+        for(String str : joinTable) {
+            builder.append(" left join " + str);
+            builder.append(" on ");
+            builder.append(priTable+ "." + joinParam.get(i) +"=" + str + "." + joinParam.get(i));
+            i++;
+        }
+        builder.append(" where ");
+        int index = 0;
+        for(String str : json.fieldNames()){
+            if(index == 0) {
+                builder.append(" " +priTable + "." + str + " " + op.get(index) + " ? and");
+                index++;
+            }
+            else {
+                builder.append(" " +joinTable.get(tableWhere) + "."+ str + " "+op.get(index) + " ? and");
+            }
+        }
+        builder.delete(builder.length() - 4, builder.length());
+        builder.append(";");
+
+        return builder;
     }
 
     public StringBuilder createJoinQuery(String priTable, io.vertx.core.json.JsonObject json,  List<String> joinTable, List<String> cols, List<String> joinParam){
@@ -209,6 +254,7 @@ public class ConnectDatabase {
     public int updateQuery(String table, String id2update, io.vertx.core.json.JsonObject json, Connection conn){
         try{
             PreparedStatement stmt = conn.prepareStatement(creteUpdateQuery(table, id2update, json).toString());
+
             if(stmt == null){
                 return -1;
             }
@@ -341,10 +387,12 @@ public class ConnectDatabase {
                     stmt.setObject(i, json.getString(str));
                     i++;
                 }
+
                 return stmt.executeUpdate();
             }
         }
         catch (Exception e){
+            System.out.println(json);
             e.printStackTrace();
             return  -1;
         }
